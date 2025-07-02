@@ -1,103 +1,223 @@
-import Image from "next/image";
+// src/app/page.tsx
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { supabase } from './lib/supabaseClient';
+import RSVPForm from './components/RSVPForm';
+
+// Tipe data untuk ucapan
+type GuestbookEntry = {
+  id: number;
+  created_at: string;
+  name: string;
+  message: string;
+  attendance: string;
+};
+
+const dummyImages = [
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=600&q=80",
+  "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=600&q=80"
+];
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [guestbook, setGuestbook] = useState<GuestbookEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [showOverlay, setShowOverlay] = useState(true);
+  const [overlaySlideUp, setOverlaySlideUp] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Fetch guestbook entries on mount
+  useEffect(() => {
+    async function fetchGuestbook() {
+      const { data } = await supabase
+        .from('Guest Book')
+        .select('*')
+        .order('created_at', { ascending: false });
+      setGuestbook(data || []);
+      setLoading(false);
+    }
+    fetchGuestbook();
+  }, []);
+
+  // Carousel auto-slide
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % dummyImages.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Animation on scroll for guestbook
+  const guestbookRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleScroll = () => {
+      if (guestbookRef.current) {
+        const top = guestbookRef.current.getBoundingClientRect().top;
+        if (top < window.innerHeight - 100) {
+          guestbookRef.current.classList.add("animate-slide-up");
+        }
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Overlay tap handler
+  const handleOverlayTap = () => {
+    setOverlaySlideUp(true);
+    setTimeout(() => setShowOverlay(false), 100); // match animation duration
+  };
+
+  return (
+    <>
+      {/* Opening Overlay */}
+      {showOverlay && (
+        <div
+          className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-pink-200 via-white to-blue-100 transition-transform duration-700 ${
+            overlaySlideUp ? "animate-overlay-slideup-only" : ""
+          }`}
+          onClick={handleOverlayTap}
+          style={{ cursor: "pointer" }}
+        >
+          <div className="text-center px-6 py-8 rounded-xl shadow-lg bg-white/70 backdrop-blur-sm max-w-md w-full mx-4 sm:mx-0">
+            <h1 className="text-3xl sm:text-4xl font-extrabold mb-2 text-pink-700 drop-shadow">Alex & Elena</h1>
+            <p className="text-base sm:text-lg mb-6 text-gray-700">Undangan Pernikahan</p>
+            <div className="animate-bounce text-gray-500 text-lg sm:text-xl">Tap anywhere to open</div>
+          </div>
         </div>
+      )}
+
+      {/* Main Content */}
+      <main className={`font-sans max-w-2xl mx-auto p-4 text-gray-700 transition-opacity duration-700 ${showOverlay ? "opacity-0" : "opacity-100"}`}>
+        {/* Hero Section with background and fade-in */}
+        <section className="relative h-72 flex items-center justify-center mb-8 rounded-2xl overflow-hidden shadow-lg animate-fadein">
+          <img
+            src="https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=900&q=80"
+            alt="Wedding"
+            className="absolute inset-0 w-full h-full object-cover brightness-75"
+          />
+          <div className="relative z-10 text-center text-white">
+            <h1 className="text-5xl font-extrabold drop-shadow-lg mb-2 animate-fadein-down">Alex & Elena</h1>
+            <p className="text-lg mt-2 animate-fadein-down delay-100">We are getting married!</p>
+            <p className="mt-4 text-2xl font-semibold animate-fadein-down delay-200">10 Agustus 2025</p>
+          </div>
+        </section>
+
+        {/* Image Carousel/Slider */}
+        <section className="mb-10">
+          <div className="relative w-full h-56 rounded-xl overflow-hidden shadow-md">
+            {dummyImages.map((src, idx) => (
+              <img
+                key={idx}
+                src={src}
+                alt={`Wedding slide ${idx + 1}`}
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${idx === currentSlide ? "opacity-100" : "opacity-0"}`}
+                draggable={false}
+              />
+            ))}
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-2">
+              {dummyImages.map((_, idx) => (
+                <button
+                  key={idx}
+                  className={`w-3 h-3 rounded-full ${idx === currentSlide ? "bg-white" : "bg-white/50"} border border-gray-300`}
+                  onClick={() => setCurrentSlide(idx)}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Bagian Detail Acara */}
+        <section className="my-10 p-6 bg-gray-100 rounded-lg shadow-md animate-fadein-up">
+          <h2 className="text-2xl font-bold text-center mb-4">Detail Acara</h2>
+          <p className="text-center"><strong>Lokasi:</strong> Grand Ballroom, Jakarta</p>
+          <p className="text-center"><strong>Waktu:</strong> 19:00 WIB - Selesai</p>
+        </section>
+
+        {/* Bagian Angpao Digital */}
+        <section className="my-10 text-center animate-fadein-up delay-100">
+           <h2 className="text-2xl font-bold mb-4">Digital Angpao</h2>
+           <p>Doa restu Anda adalah hadiah terindah bagi kami. Namun jika Anda ingin memberikan tanda kasih, Anda dapat melakukannya melalui:</p>
+           <div className="mt-4 p-4 bg-blue-50 rounded-lg inline-block shadow transition-transform hover:scale-105">
+              <p><strong>BCA:</strong> 1234567890</p>
+              <p>a/n Alex</p>
+           </div>
+        </section>
+
+        {/* Bagian Form RSVP */}
+        <section className="my-10 animate-fadein-up delay-200">
+          <h2 className="text-2xl font-bold text-center mb-4">RSVP & Ucapan</h2>
+          <div className="rounded-lg shadow-lg p-4 bg-white transition-transform hover:scale-105">
+            <RSVPForm />
+          </div>
+        </section>
+
+        {/* Bagian Tampilan Ucapan */}
+        <section className="my-10" ref={guestbookRef}>
+          <h2 className="text-2xl font-bold text-center mb-4">Ucapan Selamat</h2>
+          <div className="space-y-4">
+            {loading ? (
+              <div className="text-center text-gray-400">Memuat ucapan...</div>
+            ) : guestbook.length === 0 ? (
+              <div className="text-center text-gray-400">Belum ada ucapan.</div>
+            ) : (
+              guestbook.map((entry: GuestbookEntry, idx) => (
+                <div
+                  key={entry.id}
+                  className={`p-4 bg-white border rounded-lg shadow-sm transition-transform hover:scale-105 animate-fadein-up`}
+                  style={{ animationDelay: `${idx * 60}ms` }}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <img
+                      src={`https://i.pravatar.cc/40?u=${entry.name}`}
+                      alt={entry.name}
+                      className="w-8 h-8 rounded-full border"
+                    />
+                    <span className="font-bold">{entry.name}</span>
+                  </div>
+                  
+                  <p className="mt-2 text-gray-600">{entry.message}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+    </>
   );
 }
+
+// Custom animation styles (add to global CSS or Tailwind config)
+// .animate-fadein { animation: fadein 1s both; }
+// .animate-fadein-down { animation: fadein-down 1s both; }
+// .animate-fadein-up { animation: fadein-up 1s both; }
+// @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+// @keyframes fadein-down { from { opacity: 0; transform: translateY(-30px);} to { opacity: 1; transform: none;} }
+// @keyframes fadein-up { from { opacity: 0; transform: translateY(30px);} to { opacity: 1; transform: none;} }
+
+// Untuk revalidasi data, agar ucapan baru bisa muncul
+// export const revalidate = 60; // Revalidate every 60 seconds
+
+/*
+Add this to your global CSS (e.g., styles/globals.css or Tailwind config):
+
+@keyframes overlay-slideup-only {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-100%);
+  }
+}
+.animate-overlay-slideup-only {
+  animation: overlay-slideup-only 0.7s cubic-bezier(0.4,0,0.2,1) forwards;
+}
+
+@media (max-width: 640px) {
+  .max-w-md {
+    max-width: 95vw !important;
+  }
+}
+*/
